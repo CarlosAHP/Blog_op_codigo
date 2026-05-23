@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Blog sobre entornos en tiempo de ejecución y optimizadores de código en diseño de compiladores." />
+  <title>Entornos de ejecución y optimizadores de código</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav">
+      <span class="nav-brand">Copiladores</span>
+      <a href="#intro">Intro</a>
+      <a href="#runtime">Runtime</a>
+      <a href="#optimizacion">Optimización</a>
+      <a href="#tecnicas">Técnicas</a>
+      <a href="#loops">Bucles</a>
+    </nav>
+    <div class="hero-content">
+      <p class="hero-tag">Módulo: Entornos en tiempo de ejecución / Optimizadores</p>
+      <h1>Entornos de ejecución y optimización de código</h1>
+      <p class="hero-lead">
+        Una mirada general a cómo los lenguajes ejecutan programas en tiempo de ejecución
+        y cómo los compiladores transforman el código intermedio sin alterar su comportamiento.
+      </p>
+      <p class="hero-meta">Maestría en Copiladores · Blog académico</p>
+    </div>
+  </header>
+
+  <main class="container">
+  <aside class="toc" id="toc">
+    <h2>Contenido</h2>
+    <ol>
+      <li><a href="#intro">Introducción</a></li>
+      <li><a href="#runtime">Entornos en tiempo de ejecución</a></li>
+      <li><a href="#optimizacion">Optimización de código</a></li>
+      <li><a href="#cuando-porque">Cuándo y por qué optimizar</a></li>
+      <li><a href="#tipos">Tipos de optimización</a></li>
+      <li><a href="#tecnicas">Técnicas principales</a></li>
+      <li><a href="#loops">Optimización de bucles</a></li>
+      <li><a href="#donde">Dónde aplicar la optimización</a></li>
+      <li><a href="#cierre">Conclusiones</a></li>
+    </ol>
+  </aside>
+
+  <article class="content">
+    <section id="intro">
+      <h2>Introducción</h2>
+      <p>
+        Cuando un programa termina de compilarse, su historia no acaba: el <strong>entorno en tiempo de ejecución</strong>
+        (runtime) se encarga de cargar el binario o el bytecode, gestionar memoria, resolver llamadas dinámicas
+        y, en muchos casos, aplicar optimizaciones adicionales mientras el programa ya está en marcha.
+      </p>
+      <p>
+        En paralelo, durante la compilación, la fase de <strong>optimización de código</strong> transforma
+        la representación intermedia o el código objeto para que el programa sea más rápido, ocupe menos memoria
+        y consuma menos recursos, <em>sin cambiar lo que el programa calcula</em>.
+      </p>
+      <p>
+        Este blog resume ambos frentes a nivel general y profundiza en las técnicas clásicas de optimización
+        que estudian los compiladores modernos.
+      </p>
+    </section>
+
+    <section id="runtime">
+      <h2>Entornos en tiempo de ejecución</h2>
+      <p>
+        Un <strong>entorno de ejecución</strong> es el conjunto de servicios, bibliotecas y convenciones que
+        permiten que un programa compilado o interpretado funcione correctamente en una máquina concreta.
+        No es solo “el sistema operativo”: incluye el runtime del lenguaje, el recolector de basura,
+        el despachador de excepciones, la carga dinámica de módulos y, a menudo, un optimizador en caliente.
+      </p>
+
+      <div class="card-grid">
+        <article class="card">
+          <h3>Ejecución nativa</h3>
+          <p>
+            El compilador genera código máquina (por ejemplo, con GCC o Clang). El runtime es mínimo:
+            enlace con la libc, arranque (<code>_start</code>), pila y heap gestionados por el SO.
+            La optimización pesada ocurre en compilación.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Máquinas virtuales</h3>
+          <p>
+            Java (JVM), C# (CLR) o WebAssembly usan bytecode intermedio. El runtime interpreta,
+            compila just-in-time (JIT) o combina ambos. Aquí el optimizador puede reescribir
+            bucles calientes después de perfilar el programa en producción.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Interpretación + runtime embebido</h3>
+          <p>
+            Python, JavaScript o Ruby delegan gran parte de la semántica al intérprete o motor (CPython, V8).
+            El “compilador” del usuario es a menudo un transpilador; las optimizaciones críticas
+            viven en el motor en tiempo de ejecución.
+          </p>
+        </article>
+      </div>
+
+      <h3>Relación con los optimizadores</h3>
+      <p>
+        Los <strong>optimizadores</strong> pueden actuar en distintos momentos:
+      </p>
+      <ul>
+        <li><strong>En compilación</strong> — sobre código fuente, IR o código objeto (enfoque de este módulo).</li>
+        <li><strong>En enlace</strong> — el linker elimina símbolos muertos y fusiona secciones (LTO).</li>
+        <li><strong>En JIT</strong> — el runtime recompila métodos frecuentes con información de perfiles.</li>
+      </ul>
+      <p>
+        La regla de oro es la misma en todos los casos: toda transformación debe preservar la
+        <strong>semántica observable</strong> del programa original.
+      </p>
+    </section>
+
+    <section id="optimizacion">
+      <h2>Optimización de código en diseño de compiladores</h2>
+      <p>
+        La optimización de código es el proceso de mejorar un programa en velocidad, tamaño y uso de recursos
+        manteniendo su funcionalidad. Los aspectos que el compilador suele perseguir incluyen:
+      </p>
+      <ul class="check-list">
+        <li>Mayor rendimiento y menor consumo de memoria</li>
+        <li>Código más compacto y portable entre plataformas</li>
+        <li>Menor consumo energético en dispositivos embebidos</li>
+        <li>Tiempo de compilación razonable (no optimizar en exceso)</li>
+        <li>Corrección garantizada: el comportamiento lógico no cambia</li>
+        <li>Complejidad manejable para depuración y mantenimiento</li>
+      </ul>
+    </section>
+
+    <section id="cuando-porque">
+      <h2>¿Cuándo y por qué optimizar?</h2>
+      <p>
+        En la práctica, la optimización agresiva del compilador suele aplicarse al final del pipeline
+        de desarrollo, porque puede reducir la legibilidad del IR generado y dificultar la depuración.
+      </p>
+      <p>
+        <strong>¿Por qué delegarla al compilador?</strong> La optimización de algoritmos (elegir un mejor
+        algoritmo O(n log n) en lugar de O(n²)) es responsabilidad del programador. En cambio, el compilador
+        optimiza el <em>código intermedio</em>: propaga constantes, elimina subexpresiones comunes y reordena
+        instrucciones según la arquitectura destino — tareas repetitivas y propensas a error si se hicieran a mano.
+      </p>
+      <div class="highlight-box">
+        <strong>Beneficios típicos:</strong> menos memoria, ejecutables más pequeños, mayor velocidad de ejecución
+        y optimización sistemática sin reescribir el fuente línea por línea.
+      </div>
+    </section>
+
+    <section id="tipos">
+      <h2>Tipos de optimización</h2>
+      <div class="two-col">
+        <article class="type-box">
+          <h3>Independiente de máquina</h3>
+          <p>
+            Mejora el código intermedio sin conocer registros ni direcciones absolutas de la CPU destino.
+            Ejemplos: propagación de constantes, eliminación de código muerto, inline de funciones a nivel IR.
+          </p>
+        </article>
+        <article class="type-box type-box--accent">
+          <h3>Dependiente de máquina</h3>
+          <p>
+            Se aplica sobre el código objeto o ensamblador ya generado: asignación de registros,
+            selección de instrucciones, aprovechamiento de la jerarquía de caché y del pipeline del procesador.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="tecnicas">
+      <h2>Técnicas principales de optimización</h2>
+      <p>
+        A continuación se resumen las transformaciones más estudiadas en la fase de optimización.
+        Cada bloque muestra el patrón “antes / después” que el optimizador busca reconocer.
+      </p>
+
+      <div class="technique">
+        <h3>1. Evaluación en tiempo de compilación</h3>
+        <p>Expresiones con operandos constantes se reducen durante la compilación.</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+A = 2 * (22.0 / 7.0) * r
+
+// Después
+A = 6.2857 * r</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>2. Propagación de variables</h3>
+        <p>Sustituye una variable por otra que tiene el mismo valor en ese punto del programa.</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+x = a
+y = x + 5
+
+// Después
+y = a + 5</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>3. Propagación de constantes</h3>
+        <p>Reemplaza variables por valores constantes conocidos en compile-time o por análisis de flujo.</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+a = 10
+b = a + 5
+
+// Después
+a = 10
+b = 10 + 5</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>4. Plegado de constantes (constant folding)</h3>
+        <p>Calcula expresiones constantes antes de generar código.</p>
+        <div class="code-pair">
+          <pre><code>#define k 5
+x = 2 * k    // → x = 10
+y = k + 5    // → y = 10</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>5. Propagación de copias</h3>
+        <p>Extensión de la propagación de constantes: si <code>x</code> solo copia <code>a</code>, usa <code>a</code> directamente.</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+c = a * b
+x = a
+// ... hasta ...
+d = x * b + 4
+
+// Después
+d = a * b + 4</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>6. Eliminación de subexpresiones comunes (CSE)</h3>
+        <p>Evita recalcular la misma expresión si sus operandos no han cambiado.</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+t1 = a * b
+t2 = a * b + c
+
+// Después
+t1 = a * b
+t2 = t1 + c</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>7. Eliminación de código muerto</h3>
+        <p>Suprime asignaciones y cálculos cuyos resultados nunca se usan.</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+x = 10
+y = 20
+print(y)
+
+// Después
+y = 20
+print(y)</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>8. Eliminación de código inalcanzable</h3>
+        <p>Quita instrucciones que no pueden ejecutarse (por ejemplo, después de un <code>return</code>).</p>
+        <div class="code-pair">
+          <pre><code>int main() {
+  int num = 10;
+  cout << "GFG!";
+  return 0;
+  cout << num;  // inalcanzable — se elimina
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>9. Inline de funciones</h3>
+        <p>Sustituye la llamada por el cuerpo de la función, eliminando overhead de llamada.</p>
+        <div class="code-pair">
+          <pre><code>// Antes: sum(a,b) { return a + b; }
+//        x = sum(2, 3);
+
+// Después
+x = 2 + 3</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>10. Clonación de funciones</h3>
+        <p>
+          Crea versiones especializadas según el contexto de uso (distinto del overloading del lenguaje).
+          Útil cuando los tipos de los argumentos son conocidos en el sitio de llamada.
+        </p>
+        <div class="code-pair">
+          <pre><code>// Antes: una sola add() para int y float
+
+// Después
+int add_int(int a, int b) { return a + b; }
+float add_float(float a, float b) { return a + b; }</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>11. Variable de inducción</h3>
+        <p>En bucles, mantiene una variable que evoluciona de forma predecible (por ejemplo, <code>j = 2*i</code>).</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+for (i = 0; i < n; i++)
+    j = 2 * i;
+
+// Después
+j = 0;
+for (i = 0; i < n; i++)
+    j = j + 2;</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>12. Reducción de fuerza</h3>
+        <p>Reemplaza operaciones costosas por equivalentes más baratas.</p>
+        <div class="code-pair">
+          <pre><code>// Antes:  x = y * 2
+// Después: x = y + y</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="loops">
+      <h2>Optimización de bucles</h2>
+      <p>
+        Los bucles concentran gran parte del tiempo de CPU en programas numéricos y de sistemas.
+        Tres técnicas clásicas son:
+      </p>
+
+      <div class="technique">
+        <h3>Code motion (reducción de frecuencia)</h3>
+        <p>Mueve invariantes del cuerpo del bucle hacia fuera.</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+for (i = 0; i < n; i++) {
+    x = a * b;
+    y[i] = x + i;
+}
+
+// Después
+x = a * b;
+for (i = 0; i < n; i++)
+    y[i] = x + i;</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>Loop jamming (fusión de bucles)</h3>
+        <p>Combina bucles con el mismo límite para reducir overhead de control.</p>
+        <div class="code-pair">
+          <pre><code>// Antes: dos bucles sobre i
+// Después: un solo bucle que actualiza a[i] y d[i]</code></pre>
+        </div>
+      </div>
+
+      <div class="technique">
+        <h3>Desenrollado de bucles (loop unrolling)</h3>
+        <p>Ejecuta varias iteraciones por vuelta, reduciendo saltos y comparaciones.</p>
+        <div class="code-pair">
+          <pre><code>// Antes
+for (i = 0; i < 4; i++)
+    a[i] = a[i] * 2;
+
+// Después
+a[0] = a[0] * 2;
+a[1] = a[1] * 2;
+a[2] = a[2] * 2;
+a[3] = a[3] * 2;</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="donde">
+      <h2>¿Dónde aplicar la optimización?</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nivel</th>
+            <th>Quién optimiza</th>
+            <th>Ejemplos</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Código fuente</td>
+            <td>Programador</td>
+            <td>Mejor algoritmo, estructuras de datos, refactor de bucles</td>
+          </tr>
+          <tr>
+            <td>Código intermedio</td>
+            <td>Compilador</td>
+            <td>CSE, propagación, inline, eliminación de código muerto</td>
+          </tr>
+          <tr>
+            <td>Código objeto</td>
+            <td>Compilador (backend)</td>
+            <td>Registros, selección de instrucciones, scheduling</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="cierre">
+      <h2>Conclusiones</h2>
+      <p>
+        Los entornos en tiempo de ejecución y los optimizadores de compilador son piezas complementarias
+        de un mismo objetivo: ejecutar programas de forma eficiente y correcta. El programador elige
+        algoritmos y estructuras; el compilador aplica transformaciones mecánicas y verificables sobre el IR;
+        el runtime puede seguir optimizando en JIT cuando dispone de información de perfiles reales.
+      </p>
+      <p>
+        Comprender estas técnicas — desde la propagación de constantes hasta el desenrollado de bucles —
+        permite leer dumps de IR, interpretar flags como <code>-O2</code> o <code>-O3</code> en GCC/Clang
+        y diseñar código fuente que no luche contra el optimizador.
+      </p>
+    </section>
+  </article>
+  </main>
+
+  <footer class="footer">
+    <p>Blog académico · Entornos en tiempo de ejecución / Optimizadores de código</p>
+    <p class="footer-note">Contenido basado en material del módulo de Compiladores.</p>
+  </footer>
+</body>
+</html>
